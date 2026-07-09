@@ -275,7 +275,7 @@ public class MyFIRSTJavaOpMode extends LinearOpMode {
     private DcMotor frontLeft;
     private DcMotor frontRight;
 
-    private final double TURN_CONSTANT = 457.0 / 90.0;
+    private final double TURN_CONSTANT = 417.0 / 90.0;
     private final long TURN_OFFSET = 60;
     private final double DEFAULT_TURN_SPEED = 0.5;
 
