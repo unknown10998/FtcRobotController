@@ -211,8 +211,7 @@ public class Preset extends LinearOpMode {
     }
 }
 
-/*/*
-Methods Guide:
+/*Methods Guide:
 
     time:
         Time is in milliseconds.
@@ -268,8 +267,8 @@ Methods Guide:
 
     turnLeft(angle):
         Turns left using default speed.
-/*
-
+        */
+        /*
 public class MyFIRSTJavaOpMode extends LinearOpMode {
     private DcMotor backLeft;
     private DcMotor backRight;
@@ -341,7 +340,7 @@ public class MyFIRSTJavaOpMode extends LinearOpMode {
         drive(time, -1, -1, speed);
     }
 
-    private void driveBackword(long time) {
+    private void driveBackward(long time) {
         drive(time, -1, -1, 1.0);
     }
 
@@ -375,13 +374,11 @@ public class MyFIRSTJavaOpMode extends LinearOpMode {
         if (opModeIsActive()) {
             driveForward(1000, 0.5);
 
-            turnRight(90);
+            turnLeft(90);
 
             driveForward(1000, 0.5);
 
-            turnLeft(45);
-
-            driveBackword(1000, 0.5);
+            driveBackward(1000, 0.5);
 
             end();
         }
