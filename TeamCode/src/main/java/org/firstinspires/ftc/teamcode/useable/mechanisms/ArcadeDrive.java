@@ -69,3 +69,80 @@ public class ArcadeDrive {
     }
 
 }
+
+/*
+ * public void resetHeading() {
+ *         imu.resetYaw();
+ *     }
+ *
+ *     public void driveWithLeftStick(Gamepad gamepad) {
+ *         double x = gamepad.left_stick_x;
+ *         double y = -gamepad.left_stick_y;
+ *
+ *         double power = Math.sqrt((x * x) + (y * y));
+ *
+ *         if (power < DEAD_ZONE) {
+ *             arcadeDrive(0, 0);
+ *             return;
+ *         }
+ *
+ *         double targetAngle = Math.toDegrees(Math.atan2(x, y));
+ *         double currentAngle = getHeading();
+ *         double error = angleDifference(targetAngle, currentAngle);
+ *
+ *         double turn = error * TURN_SPEED; orafd double turn = -error * TURN_SPEED;
+ *
+ *         if (turn > MAX_TURN) {
+ *             turn = MAX_TURN;
+ *         }
+ *
+ *         if (turn < -MAX_TURN) {
+ *             turn = -MAX_TURN;
+ *         }
+ *
+ *         if (Math.abs(error) > 45) {
+ *             power = 0;
+ *         }
+ *
+ *         arcadeDrive(power, turn);
+ *     }
+ *
+ *     private void arcadeDrive(double forward, double turn) {
+ *         double leftPower = forward + turn;
+ *         double rightPower = forward - turn;
+ *
+ *         double max = Math.max(Math.abs(leftPower), Math.abs(rightPower));
+ *
+ *         if (max > 1) {
+ *             leftPower /= max;
+ *             rightPower /= max;
+ *         }
+ *
+ *         leftMotor.setPower(leftPower);
+ *         rightMotor.setPower(rightPower);
+ *     }
+ *
+ *     public double getHeading() {
+ *         return imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
+ *     }
+ *
+ *     private double angleDifference(double target, double current) {
+ *         double difference = target - current;
+ *
+ *         while (difference > 180) {
+ *             difference -= 360;
+ *         }
+ *
+ *         while (difference < -180) {
+ *             difference += 360;
+ *         }
+ *
+ *         return difference;
+ *     }
+ *
+ *     public void stop() {
+ *         leftMotor.setPower(0);
+ *         rightMotor.setPower(0);
+ *     }
+ */
+
