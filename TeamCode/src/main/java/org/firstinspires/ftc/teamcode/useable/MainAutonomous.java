@@ -5,12 +5,15 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-@Autonomous(name = "DECODE Final Auto")
+import org.firstinspires.ftc.teamcode.useable.mechanisms.ArcadeDrive;
+import org.firstinspires.ftc.teamcode.useable.mechanisms.Catapult;
+
+@Autonomous(name = "DECODE Main Auto")
 public class MainAutonomous extends OpMode {
-    private DcMotor leftMotor;
-    private DcMotor rightMotor;
+    private ArcadeDrive drive = new ArcadeDrive();
+    private Catapult catapult = new Catapult();
+
     private DcMotor intakeMotor;
-    private DcMotor catapultMotor;
 
     private ElapsedTime autoTimer = new ElapsedTime();
     private ElapsedTime stateTimer = new ElapsedTime();
@@ -31,7 +34,7 @@ public class MainAutonomous extends OpMode {
         SIDE_INTAKE_FORWARD,
         STOP_BEFORE_SHOOT,
         SHOOT,
-        RESET_CATAPULT,
+        RELEASE_CATAPULT,
         AFTER_SHOOTING_LOAD,
         RETURN_TO_START,
         TURN_TO_RELEASE_AREA,
@@ -48,14 +51,13 @@ public class MainAutonomous extends OpMode {
     private final double RELEASE_DRIVE_SPEED = 0.3;
     private final double TURN_SPEED = 0.35;
     private final double INTAKE_SPEED = 1.0;
-    private final double CATAPULT_SHOOT_POWER = 1.0;
-    private final double CATAPULT_RESET_POWER = -0.35;
 
     private final long SIDE_INTAKE_TIME = 1300;
     private final long RELEASE_AREA_INTAKE_TIME = 1100;
     private final long STOP_BEFORE_SHOOT_TIME = 250;
+
     private final long SHOOT_TIME = 450;
-    private final long RESET_TIME = 350;
+    private final long RELEASE_TIME = 350;
 
     private final int BALLS_PER_LOAD = 3;
     private final int SIDE_LOADS = 3;
@@ -64,81 +66,18 @@ public class MainAutonomous extends OpMode {
     private int sideLoadsDone = 0;
     private int totalShots = 0;
 
-    /*
-    Methods Guide:
-
-        This is a regular OpMode autonomous using an enum state machine.
-
-        init():
-            Runs once when INIT is pressed.
-            Gets the motors from the hardwareMap.
-
-        init_loop():
-            Runs over and over before PLAY is pressed.
-            Use this to choose the starting position.
-
-            left bumper:
-                TOP_LEFT
-
-            right bumper:
-                TOP_RIGHT
-
-            dpad left:
-                BOTTOM_LEFT
-
-            dpad right:
-                BOTTOM_RIGHT
-
-        start():
-            Runs once when PLAY is pressed.
-            Resets timers and starts autonomous.
-
-        loop():
-            Runs over and over after PLAY is pressed.
-            Runs the autonomous state machine.
-
-        stop():
-            Runs when the OpMode stops.
-            Stops all motors.
-
-        Main auto idea:
-            1. Start from the selected position.
-            2. Go forward on that side.
-            3. Run intake to collect 3 balls.
-            4. Stop the drive.
-            5. Shoot 3 balls with the catapult.
-            6. Repeat side-ball loop.
-            7. When side balls are done, back up to starting area.
-            8. Turn toward the loading / release area.
-            9. Drive behind where balls are released.
-            10. Keep intaking 3 balls and shooting 3 balls until auto ends.
-
-        Important:
-            This is time-based.
-            You must tune the time values for your real robot.
-    */
+    private boolean stateStarted = false;
 
     @Override
     public void init() {
-        leftMotor = hardwareMap.get(DcMotor.class, "leftMotor");
-        rightMotor = hardwareMap.get(DcMotor.class, "rightMotor");
+        drive.init(hardwareMap);
+        catapult.init(hardwareMap);
+
         intakeMotor = hardwareMap.get(DcMotor.class, "intakeMotor");
-        catapultMotor = hardwareMap.get(DcMotor.class, "catapultMotor");
 
-        leftMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        rightMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        catapultMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-
-        leftMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rightMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         intakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        catapultMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
-        leftMotor.setDirection(DcMotor.Direction.REVERSE);
-        rightMotor.setDirection(DcMotor.Direction.FORWARD);
         intakeMotor.setDirection(DcMotor.Direction.FORWARD);
-        catapultMotor.setDirection(DcMotor.Direction.FORWARD);
 
         telemetry.addData("Status", "Initialized");
         telemetry.addData("Selected Start", startPosition);
@@ -177,18 +116,22 @@ public class MainAutonomous extends OpMode {
         autoTimer.reset();
         stateTimer.reset();
 
+        drive.resetHeading();
+
         mode = AutoMode.SIDE_BALLS;
         state = AutoState.SIDE_INTAKE_FORWARD;
 
         ballsShotThisLoad = 0;
         sideLoadsDone = 0;
         totalShots = 0;
+        stateStarted = false;
     }
 
     private void goTo(AutoState newState) {
         stopAll();
         state = newState;
         stateTimer.reset();
+        stateStarted = false;
     }
 
     private boolean autoAlmostOver() {
@@ -198,11 +141,6 @@ public class MainAutonomous extends OpMode {
     private boolean isTopSide() {
         return startPosition == StartPosition.TOP_LEFT ||
                 startPosition == StartPosition.TOP_RIGHT;
-    }
-
-    private boolean isRightSide() {
-        return startPosition == StartPosition.TOP_RIGHT ||
-                startPosition == StartPosition.BOTTOM_RIGHT;
     }
 
     private long getReturnToStartTime() {
@@ -229,68 +167,37 @@ public class MainAutonomous extends OpMode {
         return 900;
     }
 
+    private void driveFieldForward(double speed) {
+        drive.fieldOrientedDrive(0, 1, speed);
+    }
+
+    private void driveFieldBackward(double speed) {
+        drive.fieldOrientedDrive(0, -1, speed);
+    }
+
     private void turnTowardReleaseArea(double speed) {
         if (startPosition == StartPosition.TOP_RIGHT) {
-            turnLeft(speed);
+            drive.turnLeft(speed);
         } else if (startPosition == StartPosition.BOTTOM_RIGHT) {
-            turnRight(speed);
+            drive.turnRight(speed);
         } else if (startPosition == StartPosition.TOP_LEFT) {
-            turnRight(speed);
+            drive.turnRight(speed);
         } else {
-            turnLeft(speed);
+            drive.turnLeft(speed);
         }
-    }
-
-    private void stopDrive() {
-        leftMotor.setPower(0);
-        rightMotor.setPower(0);
-    }
-
-    private void stopIntake() {
-        intakeMotor.setPower(0);
-    }
-
-    private void stopCatapult() {
-        catapultMotor.setPower(0);
-    }
-
-    private void stopAll() {
-        stopDrive();
-        stopIntake();
-        stopCatapult();
-    }
-
-    private void drive(double leftPower, double rightPower, double speed) {
-        leftMotor.setPower(leftPower * speed);
-        rightMotor.setPower(rightPower * speed);
-    }
-
-    private void driveForward(double speed) {
-        drive(1, 1, speed);
-    }
-
-    private void driveBackward(double speed) {
-        drive(-1, -1, speed);
-    }
-
-    private void turnRight(double speed) {
-        drive(1, -1, speed);
-    }
-
-    private void turnLeft(double speed) {
-        drive(-1, 1, speed);
     }
 
     private void intakeIn() {
         intakeMotor.setPower(INTAKE_SPEED);
     }
 
-    private void shootCatapult() {
-        catapultMotor.setPower(CATAPULT_SHOOT_POWER);
+    private void stopIntake() {
+        intakeMotor.setPower(0);
     }
 
-    private void resetCatapult() {
-        catapultMotor.setPower(CATAPULT_RESET_POWER);
+    private void stopAll() {
+        drive.stop();
+        stopIntake();
     }
 
     private void startShootingLoad() {
@@ -301,7 +208,7 @@ public class MainAutonomous extends OpMode {
     private void finishOneShot() {
         ballsShotThisLoad++;
         totalShots++;
-        goTo(AutoState.RESET_CATAPULT);
+        goTo(AutoState.RELEASE_CATAPULT);
     }
 
     private void afterLoadFinished() {
@@ -325,7 +232,6 @@ public class MainAutonomous extends OpMode {
         telemetry.addData("State", state);
         telemetry.addData("Auto Time", autoTimer.seconds());
         telemetry.addData("State Time", stateTimer.milliseconds());
-        telemetry.addData("Side", isRightSide() ? "RIGHT" : "LEFT");
         telemetry.addData("Side Loads Done", sideLoadsDone);
         telemetry.addData("Balls Shot This Load", ballsShotThisLoad);
         telemetry.addData("Total Shots", totalShots);
@@ -337,7 +243,7 @@ public class MainAutonomous extends OpMode {
 
         switch (state) {
             case SIDE_INTAKE_FORWARD:
-                driveForward(DRIVE_SPEED);
+                driveFieldForward(DRIVE_SPEED);
                 intakeIn();
 
                 if (stateTimer.milliseconds() >= SIDE_INTAKE_TIME) {
@@ -346,7 +252,8 @@ public class MainAutonomous extends OpMode {
                 break;
 
             case STOP_BEFORE_SHOOT:
-                stopAll();
+                drive.stop();
+                stopIntake();
 
                 if (stateTimer.milliseconds() >= STOP_BEFORE_SHOOT_TIME) {
                     goTo(AutoState.SHOOT);
@@ -354,21 +261,29 @@ public class MainAutonomous extends OpMode {
                 break;
 
             case SHOOT:
-                stopDrive();
+                drive.stop();
                 stopIntake();
-                shootCatapult();
+
+                if (!stateStarted) {
+                    catapult.shoot();
+                    stateStarted = true;
+                }
 
                 if (stateTimer.milliseconds() >= SHOOT_TIME) {
                     finishOneShot();
                 }
                 break;
 
-            case RESET_CATAPULT:
-                stopDrive();
+            case RELEASE_CATAPULT:
+                drive.stop();
                 stopIntake();
-                resetCatapult();
 
-                if (stateTimer.milliseconds() >= RESET_TIME) {
+                if (!stateStarted) {
+                    catapult.release();
+                    stateStarted = true;
+                }
+
+                if (stateTimer.milliseconds() >= RELEASE_TIME) {
                     if (ballsShotThisLoad < BALLS_PER_LOAD) {
                         goTo(AutoState.SHOOT);
                     } else {
@@ -382,7 +297,7 @@ public class MainAutonomous extends OpMode {
                 break;
 
             case RETURN_TO_START:
-                driveBackward(0.5);
+                driveFieldBackward(0.5);
                 stopIntake();
 
                 if (stateTimer.milliseconds() >= getReturnToStartTime()) {
@@ -400,7 +315,7 @@ public class MainAutonomous extends OpMode {
                 break;
 
             case DRIVE_TO_RELEASE_AREA:
-                driveForward(0.45);
+                driveFieldForward(0.45);
 
                 if (stateTimer.milliseconds() >= getDriveToReleaseAreaTime()) {
                     goTo(AutoState.RELEASE_AREA_INTAKE_FORWARD);
@@ -408,7 +323,7 @@ public class MainAutonomous extends OpMode {
                 break;
 
             case RELEASE_AREA_INTAKE_FORWARD:
-                driveForward(RELEASE_DRIVE_SPEED);
+                driveFieldForward(RELEASE_DRIVE_SPEED);
                 intakeIn();
 
                 if (stateTimer.milliseconds() >= RELEASE_AREA_INTAKE_TIME) {
